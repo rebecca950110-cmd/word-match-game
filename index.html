@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>英文單字配對遊戲</title>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.container {
+  background: white;
+  border-radius: 20px;
+  padding: 30px;
+  max-width: 650px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+h1 {
+  text-align: center;
+  color: #4a0e8f;
+  margin-bottom: 10px;
+  font-size: 28px;
+}
+
+.subtitle {
+  text-align: center;
+  color: #888;
+  margin-bottom: 25px;
+  font-size: 14px;
+}
+
+/* Start Screen */
+.start-screen .form-group {
+  margin-bottom: 15px;
+}
+
+.start-screen label {
+  display: block;
+  margin-bottom: 5px;
+  color: #555;
+  font-weight: 600;
+}
+
+.start-screen input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #ddd;
+  border-radius: 10px;
+  font-size: 16px;
+  transition: border 0.3s;
+}
+
+.start-screen input:focus {
+  border-color: #667eea;
+  outline: none;
+}
+
+.btn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  color: white;
+}
+
+.btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
+.btn:active { transform: translateY(0); }
+
+.btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); }
+.btn-success { background: linear-gradient(135deg, #11998e, #38ef7d); }
+.btn-warning { background: linear-gradient(135deg, #f2994a, #f2c94c); }
+
+/* Game Screen */
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  background: #f8f9ff;
+  border-radius: 12px;
+}
+
+.game-header .info {
+  display: flex;
+  gap: 20px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.timer { color: #e74c3c; }
+.score-label { color: #27ae60; }
+.pairs-label { color: #667eea; }
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.card {
+  aspect-ratio: 1;
+  perspective: 1000px;
+  cursor: pointer;
+}
+
+.card-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transition: transform 0.5s;
+  transform-style: preserve-3d;
+}
+
+.card.flipped .card-inner {
+  transform: rotateY(180deg);
+}
+
+.card-front, .card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  text-align: center;
+  padding: 8px;
+  word-break: break-word;
+}
+
+.card-front {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  font-size: 32px;
+}
+
+.card-back {
+  background: white;
+  border: 3px solid #667eea;
+  transform: rotateY(180deg);
+  font-size: 15px;
+  color: #333;
+}
+
+.card.english .card-back {
+  background: linear-gradient(135deg, #e0e7ff, #c4b5fd);
+  border-color: #667eea;
+  color: #4a0e8f;
+  font-size: 17px;
+}
+
+.card.chinese .card-back {
+  background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+  border-color: #11998e;
+  color: #065f46;
+  font-size: 17px;
+}
+
+.card.matched {
+  pointer-events: none;
+}
+
+.card.matched .card-back {
+  background: linear-gradient(135deg, #d4edda, #c3e6cb);
+  border-color: #28a745;
+  color: #155724;
+}
+
+.card.wrong {
+  animation: shake 0.5s;
+}
+
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  75% { transform: translateX(8px); }
+}
+
+/* Result Screen */
+.result-screen {
+  text-align: center;
+}
+
+.result-icon {
+  font-size: 64px;
+  margin-bottom: 10px;
+}
+
+.result-screen h2 {
+  color: #4a0e8f;
+  margin-bottom: 20px;
+}
+
+.result-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 25px;
+}
+
+.stat-box {
+  background: #f8f9ff;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.stat-box .stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #4a0e8f;
+}
+
+.stat-box .stat-label {
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+}
+
+.result-screen .btn {
+  margin-bottom: 10px;
+}
+
+.status-msg {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.status-msg.success { background: #d4edda; color: #155724; }
+.status-msg.error { background: #f8d7da; color: #721c24; }
+.status-msg.loading { background: #fff3cd; color: #856404; }
+
+/* Hide screens */
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Start Screen -->
+  <div id="startScreen" class="start-screen">
+    <h1>🔤 英文單字配對遊戲</h1>
+    <p class="subtitle">翻開卡片，找出英文與中文的配對！</p>
+    <div class="form-group">
+      <label for="className">班級</label>
+      <input type="text" id="className" placeholder="例如：三年一班" maxlength="20">
+    </div>
+    <div class="form-group">
+      <label for="seatNumber">座號</label>
+      <input type="number" id="seatNumber" placeholder="例如：15" min="1" max="99">
+    </div>
+    <button class="btn btn-primary" onclick="startGame()">開始遊戲</button>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="gameScreen" class="hidden">
+    <h1>🔤 英文單字配對遊戲</h1>
+    <div class="game-header">
+      <div class="info">
+        <span class="timer">⏱ <span id="timer">00:00</span></span>
+        <span class="score-label">⭐ <span id="score">0</span> 分</span>
+        <span class="pairs-label">✅ <span id="pairs">0</span>/8</span>
+      </div>
+    </div>
+    <div id="cardGrid" class="card-grid"></div>
+    <button class="btn btn-warning" onclick="resetGame()" style="margin-top:10px;">🔄 重新開始</button>
+  </div>
+
+  <!-- Result Screen -->
+  <div id="resultScreen" class="result-screen hidden">
+    <div class="result-icon" id="resultIcon">🎉</div>
+    <h2 id="resultTitle">太棒了！</h2>
+    <div class="result-stats">
+      <div class="stat-box">
+        <div class="stat-value" id="finalScore">0</div>
+        <div class="stat-label">分數</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="finalTime">00:00</div>
+        <div class="stat-label">花費時間</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="finalAttempts">0</div>
+        <div class="stat-label">嘗試次數</div>
+      </div>
+    </div>
+    <div id="saveStatus" class="status-msg hidden"></div>
+    <button class="btn btn-primary" onclick="resetGame()">🔄 再玩一次</button>
+    <button class="btn btn-warning" onclick="backToStart()">🏠 回首頁</button>
+  </div>
+
+</div>
+
+<script>
+// Supabase 設定
+const SUPABASE_URL = 'https://imjiqgsfzfolvwuyntah.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImltamlxZ3NmemZvbHZ3dXludGFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMjEyOTUsImV4cCI6MjEwMDc5NzI5NX0.It53dUFgbo9daLE1FxjhjTTcM1Vo6is0i3g8UorJk30';
+
+let supabase;
+
+function initSupabase() {
+  if (SUPABASE_ANON_KEY === 'YOUR_ANON_KEY_HERE') {
+    console.warn('請設定 SUPABASE_ANON_KEY');
+    return false;
+  }
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return true;
+}
+
+// 單字庫
+const WORD_POOL = [
+  { en: 'apple', zh: '蘋果' },
+  { en: 'book', zh: '書本' },
+  { en: 'cat', zh: '貓' },
+  { en: 'dog', zh: '狗' },
+  { en: 'elephant', zh: '大象' },
+  { en: 'flower', zh: '花' },
+  { en: 'garden', zh: '花園' },
+  { en: 'house', zh: '房子' },
+  { en: 'king', zh: '國王' },
+  { en: 'lion', zh: '獅子' },
+  { en: 'moon', zh: '月亮' },
+  { en: 'ocean', zh: '海洋' },
+  { en: 'pencil', zh: '鉛筆' },
+  { en: 'queen', zh: '皇后' },
+  { en: 'rainbow', zh: '彩虹' },
+  { en: 'school', zh: '學校' },
+  { en: 'teacher', zh: '老師' },
+  { en: 'umbrella', zh: '雨傘' },
+  { en: 'village', zh: '村莊' },
+  { en: 'water', zh: '水' },
+  { en: 'yellow', zh: '黃色' },
+  { en: 'zoo', zh: '動物園' },
+  { en: 'bridge', zh: '橋' },
+  { en: 'cloud', zh: '雲' },
+  { en: 'dragon', zh: '龍' },
+  { en: 'forest', zh: '森林' },
+  { en: 'happy', zh: '快樂的' },
+  { en: 'island', zh: '島嶼' },
+  { en: 'jacket', zh: '外套' },
+  { en: 'kitchen', zh: '廚房' },
+];
+
+let gameState = {
+  className: '',
+  seatNumber: 0,
+  cards: [],
+  firstCard: null,
+  secondCard: null,
+  lockBoard: false,
+  matchedPairs: 0,
+  totalPairs: 8,
+  attempts: 0,
+  score: 0,
+  timerSeconds: 0,
+  timerInterval: null,
+};
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function pickRandomWords(count) {
+  return shuffle(WORD_POOL).slice(0, count);
+}
+
+function startGame() {
+  const className = document.getElementById('className').value.trim();
+  const seatNumber = document.getElementById('seatNumber').value;
+
+  if (!className) { alert('請輸入班級'); return; }
+  if (!seatNumber || seatNumber < 1) { alert('請輸入正確的座號'); return; }
+
+  gameState.className = className;
+  gameState.seatNumber = parseInt(seatNumber);
+  gameState.matchedPairs = 0;
+  gameState.attempts = 0;
+  gameState.score = 0;
+  gameState.timerSeconds = 0;
+  gameState.firstCard = null;
+  gameState.secondCard = null;
+  gameState.lockBoard = false;
+
+  const words = pickRandomWords(gameState.totalPairs);
+  gameState.cards = [];
+  words.forEach((w, i) => {
+    gameState.cards.push({ id: i, type: 'english', text: w.en, pairId: i, matched: false });
+    gameState.cards.push({ id: i + 100, type: 'chinese', text: w.zh, pairId: i, matched: false });
+  });
+  gameState.cards = shuffle(gameState.cards);
+
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('gameScreen').classList.remove('hidden');
+  document.getElementById('resultScreen').classList.add('hidden');
+
+  renderCards();
+  updateGameInfo();
+  startTimer();
+}
+
+function renderCards() {
+  const grid = document.getElementById('cardGrid');
+  grid.innerHTML = '';
+  gameState.cards.forEach(card => {
+    const div = document.createElement('div');
+    div.className = 'card ' + card.type + (card.matched ? ' matched' : '');
+    div.dataset.cardIndex = gameState.cards.indexOf(card);
+    div.innerHTML = `
+      <div class="card-inner">
+        <div class="card-front">?</div>
+        <div class="card-back">${card.text}</div>
+      </div>
+    `;
+    div.addEventListener('click', () => onCardClick(div, card));
+    grid.appendChild(div);
+  });
+}
+
+function onCardClick(el, card) {
+  if (gameState.lockBoard) return;
+  if (card.matched) return;
+  if (el.classList.contains('flipped')) return;
+
+  el.classList.add('flipped');
+
+  if (!gameState.firstCard) {
+    gameState.firstCard = { el, card };
+    return;
+  }
+
+  gameState.secondCard = { el, card };
+  gameState.attempts++;
+  gameState.lockBoard = true;
+
+  checkMatch();
+}
+
+function checkMatch() {
+  const first = gameState.firstCard;
+  const second = gameState.secondCard;
+
+  if (first.card.pairId === second.card.pairId && first.card.type !== second.card.type) {
+    // 配對成功
+    first.card.matched = true;
+    second.card.matched = true;
+    gameState.matchedPairs++;
+
+    first.el.classList.add('matched');
+    second.el.classList.add('matched');
+
+    // 加分：基礎 100 分，根據時間調整
+    const basePoints = 100;
+    const timeBonus = Math.max(0, 50 - Math.floor(gameState.timerSeconds / 2));
+    gameState.score += basePoints + timeBonus;
+
+    updateGameInfo();
+    resetSelection();
+
+    if (gameState.matchedPairs === gameState.totalPairs) {
+      setTimeout(endGame, 600);
+    }
+  } else {
+    // 配對失敗
+    first.el.classList.add('wrong');
+    second.el.classList.add('wrong');
+
+    gameState.score = Math.max(0, gameState.score - 10);
+    updateGameInfo();
+
+    setTimeout(() => {
+      first.el.classList.remove('flipped', 'wrong');
+      second.el.classList.remove('flipped', 'wrong');
+      resetSelection();
+    }, 800);
+  }
+}
+
+function resetSelection() {
+  gameState.firstCard = null;
+  gameState.secondCard = null;
+  gameState.lockBoard = false;
+}
+
+function startTimer() {
+  if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+  gameState.timerSeconds = 0;
+  gameState.timerInterval = setInterval(() => {
+    gameState.timerSeconds++;
+    updateTimer();
+  }, 1000);
+  updateTimer();
+}
+
+function stopTimer() {
+  if (gameState.timerInterval) {
+    clearInterval(gameState.timerInterval);
+    gameState.timerInterval = null;
+  }
+}
+
+function updateTimer() {
+  const m = Math.floor(gameState.timerSeconds / 60);
+  const s = gameState.timerSeconds % 60;
+  document.getElementById('timer').textContent =
+    String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
+
+function updateGameInfo() {
+  document.getElementById('score').textContent = gameState.score;
+  document.getElementById('pairs').textContent = gameState.matchedPairs;
+}
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
+
+function endGame() {
+  stopTimer();
+
+  document.getElementById('gameScreen').classList.add('hidden');
+  document.getElementById('resultScreen').classList.remove('hidden');
+
+  document.getElementById('finalScore').textContent = gameState.score;
+  document.getElementById('finalTime').textContent = formatTime(gameState.timerSeconds);
+  document.getElementById('finalAttempts').textContent = gameState.attempts;
+
+  // 根據分數顯示不同結果
+  const maxPossible = gameState.totalPairs * 150;
+  const ratio = gameState.score / maxPossible;
+  if (ratio >= 0.9) {
+    document.getElementById('resultIcon').textContent = '🏆';
+    document.getElementById('resultTitle').textContent = '太厲害了！完美表現！';
+  } else if (ratio >= 0.6) {
+    document.getElementById('resultIcon').textContent = '🎉';
+    document.getElementById('resultTitle').textContent = '很棒！繼續加油！';
+  } else if (ratio >= 0.3) {
+    document.getElementById('resultIcon').textContent = '👍';
+    document.getElementById('resultTitle').textContent = '不錯喔，再試試看！';
+  } else {
+    document.getElementById('resultIcon').textContent = '💪';
+    document.getElementById('resultTitle').textContent = '繼續練習，會越來越好的！';
+  }
+
+  // 儲存到 Supabase
+  saveRecord();
+}
+
+async function saveRecord() {
+  const statusEl = document.getElementById('saveStatus');
+  statusEl.classList.remove('hidden');
+  statusEl.className = 'status-msg loading';
+  statusEl.textContent = '正在儲存成績...';
+
+  if (!supabase) {
+    if (!initSupabase()) {
+      statusEl.className = 'status-msg error';
+      statusEl.textContent = '⚠️ 資料庫未設定，成績未儲存（遊戲可正常遊玩）';
+      return;
+    }
+  }
+
+  try {
+    const { error } = await supabase
+      .from('game_records')
+      .insert([{
+        class_name: gameState.className,
+        seat_number: gameState.seatNumber,
+        score: gameState.score,
+        time_seconds: gameState.timerSeconds,
+        attempts: gameState.attempts,
+      }]);
+
+    if (error) {
+      // 檢查是否為資料表不存在的錯誤
+      if (error.message && error.message.includes('relation') && error.message.includes('does not exist')) {
+        statusEl.className = 'status-msg error';
+        statusEl.textContent = '⚠️ 資料表尚未建立，請老師先在 Supabase 執行建表 SQL';
+      } else {
+        throw error;
+      }
+    } else {
+      statusEl.className = 'status-msg success';
+      statusEl.textContent = '✅ 成績已儲存成功！';
+    }
+  } catch (err) {
+    statusEl.className = 'status-msg error';
+    statusEl.textContent = '❌ 儲存失敗：' + (err.message || '連線錯誤');
+  }
+}
+
+function resetGame() {
+  stopTimer();
+  document.getElementById('resultScreen').classList.add('hidden');
+  document.getElementById('saveStatus').classList.add('hidden');
+  startGame();
+}
+
+function backToStart() {
+  stopTimer();
+  document.getElementById('resultScreen').classList.add('hidden');
+  document.getElementById('gameScreen').classList.add('hidden');
+  document.getElementById('startScreen').classList.remove('hidden');
+  document.getElementById('saveStatus').classList.add('hidden');
+  document.getElementById('className').value = '';
+  document.getElementById('seatNumber').value = '';
+}
+
+// 初始化
+initSupabase();
+</script>
+
+</body>
+</html>
