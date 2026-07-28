@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>遊戲成績後台</title>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+header {
+  background: white;
+  border-radius: 16px;
+  padding: 24px 28px;
+  margin-bottom: 20px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+header h1 {
+  color: #4a0e8f;
+  font-size: 24px;
+}
+
+header .links a {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 15px;
+}
+header .links a:hover { text-decoration: underline; }
+
+/* Stats Cards */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 14px;
+  padding: 18px;
+  text-align: center;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
+
+.stat-card .value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #4a0e8f;
+}
+
+.stat-card .label {
+  font-size: 13px;
+  color: #888;
+  margin-top: 4px;
+}
+
+/* Table Section */
+.panel {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.panel-header h2 {
+  font-size: 18px;
+  color: #333;
+}
+
+.search-box {
+  display: flex;
+  gap: 8px;
+}
+
+.search-box input {
+  padding: 8px 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+}
+
+.search-box input:focus { border-color: #667eea; }
+
+.search-box select {
+  padding: 8px 10px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  background: white;
+}
+
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+}
+.btn:hover { opacity: 0.9; }
+
+/* Table */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th, td {
+  padding: 12px 10px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+th {
+  background: #f8f9ff;
+  color: #4a0e8f;
+  font-weight: 700;
+  position: sticky;
+  top: 0;
+}
+
+tr:hover { background: #f8f9ff; }
+
+.score-high { color: #27ae60; font-weight: 700; }
+.score-mid  { color: #f2994a; font-weight: 600; }
+.score-low  { color: #888; }
+
+.empty-msg {
+  text-align: center;
+  color: #888;
+  padding: 40px;
+  font-size: 16px;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #667eea;
+}
+
+.error-msg {
+  text-align: center;
+  padding: 30px;
+  color: #e74c3c;
+  background: #fdeaea;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+
+.rank-1 { background: linear-gradient(135deg, #ffd700, #ffec8b); color: #8b6914; font-weight: 700; }
+.rank-2 { background: linear-gradient(135deg, #c0c0c0, #e0e0e0); color: #555; font-weight: 700; }
+.rank-3 { background: linear-gradient(135deg, #cd7f32, #daa520); color: #fff; font-weight: 700; }
+.rank-1, .rank-2, .rank-3 { display: inline-block; width: 28px; height: 28px; line-height: 28px; text-align: center; border-radius: 50%; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <h1>📊 英文單字配對遊戲 — 成績後台</h1>
+    <div class="links">
+      <a href="./index.html">← 回到遊戲</a>
+    </div>
+  </header>
+
+  <div class="stats" id="statsArea">
+    <div class="stat-card"><div class="value" id="statCount">-</div><div class="label">總人次</div></div>
+    <div class="stat-card"><div class="value" id="statAvg">-</div><div class="label">平均分數</div></div>
+    <div class="stat-card"><div class="value" id="statHigh">-</div><div class="label">最高分</div></div>
+    <div class="stat-card"><div class="value" id="statBestTime">-</div><div class="label">最快紀錄</div></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h2>🏆 排行榜</h2>
+      <div class="search-box">
+        <input type="text" id="filterClass" placeholder="篩選班級..." oninput="applyFilter()">
+        <select id="sortBy" onchange="applySort()">
+          <option value="score_desc">分數高→低</option>
+          <option value="score_asc">分數低→高</option>
+          <option value="time_asc">時間快→慢</option>
+          <option value="time_desc">時間慢→快</option>
+          <option value="newest">最新優先</option>
+        </select>
+        <button class="btn" onclick="loadData()">🔄 重新整理</button>
+      </div>
+    </div>
+    <div id="tableArea">
+      <div class="loading">正在載入資料...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const SUPABASE_URL = 'https://imjiqgsfzfolvwuyntah.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImltamlxZ3NmemZvbHZ3dXludGFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMjEyOTUsImV4cCI6MjEwMDc5NzI5NX0.It53dUFgbo9daLE1FxjhjTTcM1Vo6is0i3g8UorJk30';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let allRecords = [];
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
+
+function formatDate(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  return d.toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+async function loadData() {
+  const area = document.getElementById('tableArea');
+  area.innerHTML = '<div class="loading">正在載入資料...</div>';
+
+  try {
+    const { data, error } = await sb
+      .from('game_records')
+      .select('*')
+      .order('score', { ascending: false });
+
+    if (error) throw error;
+
+    allRecords = data || [];
+    applySort();
+    updateStats(allRecords);
+  } catch (err) {
+    area.innerHTML = '<div class="error-msg">載入失敗：' + (err.message || '連線錯誤') + '</div>';
+  }
+}
+
+function updateStats(data) {
+  const count = data.length;
+  const avg = count > 0 ? Math.round(data.reduce((s, r) => s + r.score, 0) / count) : 0;
+  const high = count > 0 ? Math.max(...data.map(r => r.score)) : 0;
+  const bestTime = count > 0 ? Math.min(...data.map(r => r.time_seconds)) : 0;
+
+  document.getElementById('statCount').textContent = count;
+  document.getElementById('statAvg').textContent = avg;
+  document.getElementById('statHigh').textContent = high;
+  document.getElementById('statBestTime').textContent = bestTime > 0 ? formatTime(bestTime) : '-';
+}
+
+function applyFilter() {
+  applySort();
+}
+
+function applySort() {
+  let data = [...allRecords];
+  const filterClass = document.getElementById('filterClass').value.trim();
+  const sortBy = document.getElementById('sortBy').value;
+
+  if (filterClass) {
+    data = data.filter(r => r.class_name && r.class_name.includes(filterClass));
+  }
+
+  switch (sortBy) {
+    case 'score_desc': data.sort((a, b) => b.score - a.score); break;
+    case 'score_asc':  data.sort((a, b) => a.score - b.score); break;
+    case 'time_asc':   data.sort((a, b) => a.time_seconds - b.time_seconds); break;
+    case 'time_desc':  data.sort((a, b) => b.time_seconds - a.time_seconds); break;
+    case 'newest':     data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); break;
+  }
+
+  renderTable(data);
+  updateStats(data);
+}
+
+function renderTable(data) {
+  const area = document.getElementById('tableArea');
+
+  if (data.length === 0) {
+    area.innerHTML = '<div class="empty-msg">尚無資料</div>';
+    return;
+  }
+
+  let html = '<table><thead><tr>';
+  html += '<th>名次</th>';
+  html += '<th>班級</th>';
+  html += '<th>座號</th>';
+  html += '<th>分數</th>';
+  html += '<th>時間</th>';
+  html += '<th>嘗試次數</th>';
+  html += '<th>時間戳</th>';
+  html += '</tr></thead><tbody>';
+
+  data.forEach((r, i) => {
+    let rankBadge = '';
+    if (i === 0) rankBadge = '<span class="rank-1">1</span>';
+    else if (i === 1) rankBadge = '<span class="rank-2">2</span>';
+    else if (i === 2) rankBadge = '<span class="rank-3">3</span>';
+    else rankBadge = '<span style="display:inline-block;width:28px;text-align:center;color:#888;">' + (i + 1) + '</span>';
+
+    let scoreClass = 'score-low';
+    if (r.score >= 800) scoreClass = 'score-high';
+    else if (r.score >= 500) scoreClass = 'score-mid';
+
+    html += '<tr>';
+    html += '<td>' + rankBadge + '</td>';
+    html += '<td>' + (r.class_name || '-') + '</td>';
+    html += '<td>' + r.seat_number + '</td>';
+    html += '<td class="' + scoreClass + '">' + r.score + '</td>';
+    html += '<td>' + formatTime(r.time_seconds) + '</td>';
+    html += '<td>' + r.attempts + '</td>';
+    html += '<td>' + formatDate(r.created_at) + '</td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  area.innerHTML = html;
+}
+
+loadData();
+</script>
+
+</body>
+</html>
