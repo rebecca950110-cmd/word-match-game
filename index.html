@@ -319,14 +319,14 @@ h1 {
 const SUPABASE_URL = 'https://imjiqgsfzfolvwuyntah.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImltamlxZ3NmemZvbHZ3dXludGFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMjEyOTUsImV4cCI6MjEwMDc5NzI5NX0.It53dUFgbo9daLE1FxjhjTTcM1Vo6is0i3g8UorJk30';
 
-let supabase;
+let sb;
 
 function initSupabase() {
   if (SUPABASE_ANON_KEY === 'YOUR_ANON_KEY_HERE') {
     console.warn('請設定 SUPABASE_ANON_KEY');
     return false;
   }
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   return true;
 }
 
@@ -581,7 +581,7 @@ async function saveRecord() {
   statusEl.className = 'status-msg loading';
   statusEl.textContent = '正在儲存成績...';
 
-  if (!supabase) {
+  if (!sb) {
     if (!initSupabase()) {
       statusEl.className = 'status-msg error';
       statusEl.textContent = '⚠️ 資料庫未設定，成績未儲存（遊戲可正常遊玩）';
@@ -590,7 +590,7 @@ async function saveRecord() {
   }
 
   try {
-    const { error } = await supabase
+    const { error } = await sb
       .from('game_records')
       .insert([{
         class_name: gameState.className,
